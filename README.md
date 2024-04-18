@@ -1,3 +1,4 @@
 # COP4530
 
-To run: g++ -std=c++17 main.cpp
+To compile: g++ -std=c++17 -o game \*.cpp
+To run: ./game

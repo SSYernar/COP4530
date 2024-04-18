@@ -1,29 +1,20 @@
 #include <iostream>
-#include <queue>
+#include <cstdlib>
+#include <random>
 #include <stack>
-#include <cstdlib> // For system("cls") on Windows or system("clear") on Unix-like systems
-#include <random>  // For random number generation
+#include "linked_list.h"
+#include "bfs.h"
 
 #ifdef _WIN32
-#include <conio.h> // For _getch() on Windows
+#include <conio.h>
 #else
-#include <termios.h> // For termios, tcgetattr(), tcsetattr() on Unix-like systems
-#include <unistd.h>  // For STDIN_FILENO on Unix-like systems
+#include <termios.h>
+#include <unistd.h>
 #endif
 
 using namespace std;
 
 const int BOARD_SIZE = 10;
-
-// Linked list node to store item locations
-struct ItemNode
-{
-    int row;
-    int col;
-    ItemNode *next;
-
-    ItemNode(int r, int c) : row(r), col(c), next(nullptr) {}
-};
 
 // Function to read a single character from the console
 char getch()
@@ -43,58 +34,7 @@ char getch()
 #endif
 }
 
-// Function to check if an item exists at a given location in the linked list
-bool itemExists(ItemNode *items, int row, int col)
-{
-    ItemNode *current = items;
-    while (current != nullptr)
-    {
-        if (current->row == row && current->col == col)
-            return true;
-        current = current->next;
-    }
-    return false;
-}
-
-// Function to add an item to the linked list
-void addItem(ItemNode *&items, int row, int col)
-{
-    if (items == nullptr)
-        items = new ItemNode(row, col);
-    else
-    {
-        ItemNode *newNode = new ItemNode(row, col);
-        newNode->next = items;
-        items = newNode;
-    }
-}
-
-// Function to remove an item from the linked list
-void removeItem(ItemNode *&items, int row, int col)
-{
-    if (items == nullptr)
-        return;
-    if (items->row == row && items->col == col)
-    {
-        ItemNode *temp = items;
-        items = items->next;
-        delete temp;
-        return;
-    }
-    ItemNode *prev = items;
-    ItemNode *current = items->next;
-    while (current != nullptr)
-    {
-        if (current->row == row && current->col == col)
-        {
-            prev->next = current->next;
-            delete current;
-            return;
-        }
-        prev = current;
-        current = current->next;
-    }
-}
+bool gameOver = false;
 
 // Function to display the board
 void displayBoard(char board[][BOARD_SIZE], ItemNode *items)
@@ -106,6 +46,7 @@ void displayBoard(char board[][BOARD_SIZE], ItemNode *items)
     system("clear");
 #endif
 
+    bool playerExists = false;
     // Display the board
     for (int i = 0; i < BOARD_SIZE; ++i)
     {
@@ -113,7 +54,10 @@ void displayBoard(char board[][BOARD_SIZE], ItemNode *items)
         {
             char symbol = board[i][j];
             if (symbol == 'P')
+            {
                 cout << "\033[1;32m" << symbol << "\033[0m "; // Green color for player, reset color after printing
+                playerExists = true;
+            }
             else if (symbol == 'R')
                 cout << "\033[1;31m" << symbol << "\033[0m "; // Red color for robot, reset color after printing
             else if (items != nullptr && itemExists(items, i, j))
@@ -123,55 +67,10 @@ void displayBoard(char board[][BOARD_SIZE], ItemNode *items)
         }
         cout << endl;
     }
-}
-
-// Function to find the optimal direction for the robot to move towards the player
-char findOptimalDirection(char board[][BOARD_SIZE], int robotRow, int robotCol, int playerRow, int playerCol)
-{
-    const int dx[] = {0, 0, 1, -1};
-    const int dy[] = {1, -1, 0, 0};
-    bool visited[BOARD_SIZE][BOARD_SIZE] = {false};
-    queue<pair<int, int>> q;
-    q.push({robotRow, robotCol});
-    visited[robotRow][robotCol] = true;
-
-    // Initialize optimal direction as no movement
-    char optimalDirection = ' ';
-
-    while (!q.empty())
+    if (!playerExists)
     {
-        auto [x, y] = q.front();
-        q.pop();
-
-        // Check if the robot is adjacent to the player
-        if (abs(x - playerRow) + abs(y - playerCol) == 1)
-        {
-            // Determine the direction towards the player
-            if (x < playerRow)
-                optimalDirection = 'S'; // Move down
-            else if (x > playerRow)
-                optimalDirection = 'W'; // Move up
-            else if (y < playerCol)
-                optimalDirection = 'D'; // Move right
-            else if (y > playerCol)
-                optimalDirection = 'A'; // Move left
-            break;
-        }
-
-        // Explore neighboring cells
-        for (int k = 0; k < 4; ++k)
-        {
-            int nx = x + dx[k];
-            int ny = y + dy[k];
-            if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && !visited[nx][ny])
-            {
-                q.push({nx, ny});
-                visited[nx][ny] = true;
-            }
-        }
+        gameOver = true;
     }
-
-    return optimalDirection;
 }
 
 int main()
@@ -225,7 +124,6 @@ int main()
 
     // Game loop
     char move;
-    bool gameOver = false;
     int itemsRemaining = 5; // Number of items remaining to collect
     while (!gameOver)
     {
@@ -323,14 +221,15 @@ int main()
             board[robotRow][robotCol] = 'R'; // 'R' represents the robot
         }
 
-        // Display the updated board
-        displayBoard(board, items);
-
         // Check if the player and robot are in the same cell
         if (playerRow == robotRow && playerCol == robotCol)
         {
+            if (board[playerRow][playerCol] == 'P')
+            {
+                board[playerRow][playerCol] = 'R';
+            }
+
             gameOver = true;
-            break;
         }
 
         // Check if the player moved to a cell containing an item
@@ -341,8 +240,15 @@ int main()
             if (itemsRemaining == 0)
             {
                 gameOver = true;
-                break;
             }
+        }
+
+        // Display the updated board
+        displayBoard(board, items);
+
+        if (gameOver)
+        {
+            break;
         }
     }
 
