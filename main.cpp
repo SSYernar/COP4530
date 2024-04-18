@@ -125,8 +125,8 @@ void displayBoard(char board[][BOARD_SIZE], ItemNode *items)
     }
 }
 
-// BFS to find the shortest path from the robot's position to the player's position
-bool findPath(char board[][BOARD_SIZE], int robotRow, int robotCol, int playerRow, int playerCol)
+// Function to find the optimal direction for the robot to move towards the player
+char findOptimalDirection(char board[][BOARD_SIZE], int robotRow, int robotCol, int playerRow, int playerCol)
 {
     const int dx[] = {0, 0, 1, -1};
     const int dy[] = {1, -1, 0, 0};
@@ -135,17 +135,30 @@ bool findPath(char board[][BOARD_SIZE], int robotRow, int robotCol, int playerRo
     q.push({robotRow, robotCol});
     visited[robotRow][robotCol] = true;
 
+    // Initialize optimal direction as no movement
+    char optimalDirection = ' ';
+
     while (!q.empty())
     {
         auto [x, y] = q.front();
         q.pop();
 
-        if (x == playerRow && y == playerCol)
+        // Check if the robot is adjacent to the player
+        if (abs(x - playerRow) + abs(y - playerCol) == 1)
         {
-            // Found the player
-            return true;
+            // Determine the direction towards the player
+            if (x < playerRow)
+                optimalDirection = 'S'; // Move down
+            else if (x > playerRow)
+                optimalDirection = 'W'; // Move up
+            else if (y < playerCol)
+                optimalDirection = 'D'; // Move right
+            else if (y > playerCol)
+                optimalDirection = 'A'; // Move left
+            break;
         }
 
+        // Explore neighboring cells
         for (int k = 0; k < 4; ++k)
         {
             int nx = x + dx[k];
@@ -158,7 +171,7 @@ bool findPath(char board[][BOARD_SIZE], int robotRow, int robotCol, int playerRo
         }
     }
 
-    return false; // Player not reachable
+    return optimalDirection;
 }
 
 int main()
@@ -219,7 +232,7 @@ int main()
         // Ask the player for input
         cout << "Enter move (W - up, S - down, A - left, D - right, U - undo): ";
         move = getch();
-
+        bool undoOperation = (move == 'U' || move == 'u');
         // Update player position based on input
         switch (move)
         {
@@ -267,12 +280,24 @@ int main()
         case 'u':
             if (!playerHistory.empty())
             {
-                pair<int, int> prevPos = playerHistory.top();
+                // Undo player move
+                pair<int, int> prevPlayerPos = playerHistory.top();
                 playerHistory.pop();
                 board[playerRow][playerCol] = '.';
-                playerRow = prevPos.first;
-                playerCol = prevPos.second;
+                playerRow = prevPlayerPos.first;
+                playerCol = prevPlayerPos.second;
                 board[playerRow][playerCol] = 'P';
+
+                // Undo robot move
+                if (!robotHistory.empty())
+                {
+                    pair<int, int> prevRobotPos = robotHistory.top();
+                    robotHistory.pop();
+                    board[robotRow][robotCol] = '.';
+                    robotRow = prevRobotPos.first;
+                    robotCol = prevRobotPos.second;
+                    board[robotRow][robotCol] = 'R';
+                }
             }
             break;
         default:
@@ -280,28 +305,21 @@ int main()
             break;
         }
 
-        // Update robot position to chase the player
-        bool playerFound = findPath(board, robotRow, robotCol, playerRow, playerCol);
-        if (playerFound && dist(gen) % 2 == 0)
+        // Update robot position to chase the player optimally
+        char optimalDirection = findOptimalDirection(board, robotRow, robotCol, playerRow, playerCol);
+        if (optimalDirection != ' ' && !undoOperation && dist(gen) & 1)
         {
             robotHistory.push({robotRow, robotCol});
             board[robotRow][robotCol] = '.'; // Clear the current position of the robot
-            if (robotRow < playerRow)
-            {
-                robotRow++;
-            }
-            else if (robotRow > playerRow)
-            {
-                robotRow--;
-            }
-            else if (robotCol < playerCol)
-            {
-                robotCol++;
-            }
-            else if (robotCol > playerCol)
-            {
-                robotCol--;
-            }
+            // Move the robot in the optimal direction
+            if (optimalDirection == 'W' && robotRow > 0)
+                robotRow--; // Move up
+            else if (optimalDirection == 'S' && robotRow < BOARD_SIZE - 1)
+                robotRow++; // Move down
+            else if (optimalDirection == 'A' && robotCol > 0)
+                robotCol--; // Move left
+            else if (optimalDirection == 'D' && robotCol < BOARD_SIZE - 1)
+                robotCol++;                  // Move right
             board[robotRow][robotCol] = 'R'; // 'R' represents the robot
         }
 
